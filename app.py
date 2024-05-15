@@ -66,7 +66,7 @@ class Anime_Recommender_System:
         url = f"https://api.jikan.moe/v4/anime?q={given_name}&nsfw"
         response = requests.get(url)
         # print(response.status_code)
-        if response.status_code == 401 or response.status_code == 402 or response.status_code == 403 or response.status_code == 404:
+        if response.status_code >= 400:
             data_rec = {"data": [{"images": {"jpg": {"image_url": "https://th.bing.com/th/id/OIP.dXRPKVT4ML_eVnJzukJ8MQAAAA?rs=1&pid=ImgDetMain"}}}]}
         else:
             # print(url, given_name)
