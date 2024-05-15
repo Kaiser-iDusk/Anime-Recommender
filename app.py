@@ -3,58 +3,17 @@ import pandas as pd
 import numpy as np
 import pickle
 import requests
-
-# def recommend_popularity(charts):
-#     ret = []
-#     for i in range(10):
-#         name = charts['name'].iloc[i]
-#         rating = charts['rating'].iloc[i]
-#         genre = charts['tags'].iloc[i]
-
-#         ret.append([name, rating, genre])
-#     return ret
-
-# def get_id(name, data):
-#     return data[data['name']==name]['anime_id'].to_numpy()[0]
-    
-# def get_index(id, data):
-#     return data[data['anime_id']==id].index[0]
-
-# def knn(query, knowledge, frame):
-#     train_vec = []
-#     for i, s in knowledge:
-#         train_vec.append([int(i), s, frame['rating'].iloc[int(i)], frame['members'].iloc[int(i)]])
-#     query = np.array(query).reshape(1, -1)
-#     train_vec = np.array(train_vec)
-#     distances = []
-#     for i in train_vec:
-#         val = (0.65*(query[0][0]-i[1])**3 + 0.05*(query[0][1]-i[2])**3 + 0.3*(query[0][2]-i[3])**3)**(1/3)
-#         # print(val)
-#         distances.append([i[0], val])
-#     return np.array(distances)
-
-# def recommend(name, data, frame):
-#     index = get_index(get_id(name, frame), frame)
-#     anime_tr = data[index].reshape(-1,2)
-#     print(anime_tr.shape)
-#     final = np.array(sorted(knn([1.0, frame[frame['name'] == name]['rating'].to_numpy()[0], frame[frame['name'] == name]['members'].to_numpy()[0]], anime_tr, frame), key=lambda x: x[1]))
-#     final = final[: 25]
-#     final_list = sorted(final, key = lambda x: -frame['rating'].iloc[int(x[0])])[:11]
-#     final_list = sorted(final_list, key = lambda x: -frame['members'].iloc[int(x[0])])
-#     # for i, d in final_list:
-#     #     print(f"Name: {frame['name'].iloc[int(i)]} | Tags: {frame['tags'].iloc[int(i)]} | Popularity: {frame['rating'].iloc[int(i)]} | Fans: {frame['members'].iloc[int(i)]}")
-#     return final_list
+import time
 
 class Anime_Recommender_System:
     paths = {
         'anime_data': 'anime_series.pkl',
         'popular_anime': 'popular_series.pkl',
         'distances': 'proto.pkl',
-        'df': 'df.pkl'
+        'df': 'df.pkl',
+        'posters': 'posters.csv',
+        'pop_rec': 'pop_rec.csv'
     }
-
-    home_page_posters = []
-    home_page_recommendations = []
 
     def __init__(self):
         self.anime_data = pickle.load(open(self.paths['anime_data'], "rb"))
@@ -66,8 +25,12 @@ class Anime_Recommender_System:
         url = f"https://api.jikan.moe/v4/anime?q={given_name}&nsfw"
         response = requests.get(url)
         # print(response.status_code)
-        if response.status_code >= 400:
+        if response.status_code >= 400 and response.status_code <= 404:
             data_rec = {"data": [{"images": {"jpg": {"image_url": "https://th.bing.com/th/id/OIP.dXRPKVT4ML_eVnJzukJ8MQAAAA?rs=1&pid=ImgDetMain"}}}]}
+        elif response.status_code == 429:
+            time.sleep(1)
+            print(f"Looping for: {given_name}")
+            return self.fetch_poster(given_name)
         else:
             # print(url, given_name)
             data_rec = response.json()
@@ -75,19 +38,34 @@ class Anime_Recommender_System:
         image_path = data_rec["data"][0]["images"]["jpg"]["image_url"]
         return image_path
     
-    def make_home_page(self):
-        recommendations = self.home_page_recommendations
-        if len(recommendations) == 0:
+    def make_home_page(self): 
+        print("Here")
+        recommendations = pd.read_csv(self.paths['pop_rec'], skiprows=0)
+        # print(len(self.home_page_recommendations))
+        if len(recommendations) < 10:
+            print("Working 1")
             recommendations = self.recommend_popularity()
+            recommendations = pd.DataFrame(recommendations)
+            print(recommendations)
+            recommendations.to_csv(self.paths['pop_rec'], header = True, index=False)
         
-        posters_pop = []
-        if len(self.home_page_posters) == 0:
+        recommendations = recommendations.to_numpy()
+        
+        print(recommendations)
+        posters_pop = pd.read_csv(self.paths['posters'], skiprows=0)
+
+        if len(posters_pop) < 10:
+            print("Working 2")
+            temp = []
             for n, r, g in recommendations:
                 name = n.replace('&quot;', '')
-                posters_pop.append(self.fetch_poster(name))
-            self.home_page_posters = posters_pop
-        else:
-            posters_pop = self.home_page_posters
+                temp.append(self.fetch_poster(name))
+            posters_pop = temp
+            posters_pop = pd.DataFrame(posters_pop)
+            posters_pop.to_csv(self.paths['posters'], header = True, index=False)
+        
+        posters_pop = posters_pop.to_numpy().reshape(-1,)
+        print(posters_pop.shape)
         
         return recommendations, posters_pop
 
@@ -134,11 +112,6 @@ class Anime_Recommender_System:
 
 system = Anime_Recommender_System()
 
-# anime_data = pickle.load(open('anime_series.pkl', "rb"))
-# popular_charts = pickle.load(open('popular_series.pkl', "rb"))
-# similarity = pickle.load(open('proto.pkl', "rb"))
-# df = pickle.load(open('df.pkl', "rb"))
-
 st.title("Anime Recommendation Website")
 
 anime_name = st.selectbox("Choose Anime", system.anime_data['name'].values)
@@ -174,6 +147,7 @@ if st.button("Submit"):
 
 with st.container():
     st.header("Popular Charts:")
+    print("Home")
     recommendations, posters_pop = system.make_home_page()
 
     counter = 0
@@ -182,7 +156,7 @@ with st.container():
         cols = st.columns(5)
         for col in cols:
             with col:
-                st.image(posters_pop[counter-1])
+                st.image(posters_pop[counter])
                 st.write(f"{recommendations[counter][0]}")
                 st.write(f"Rating: {recommendations[counter][1]} / 10")
                 counter += 1
