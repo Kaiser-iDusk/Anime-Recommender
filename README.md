@@ -1,5 +1,7 @@
 **Anime Recommendation System**
 
+Link: https://anime-recommender-proto1.streamlit.app/
+
 This project aims to provide users with the ease of recommending anime that matches the likes of the content of the anime they want to be recommended. This project utilises Content based filtering techniques to accomplish the job of recommendation.
 
 Tech Stack:
