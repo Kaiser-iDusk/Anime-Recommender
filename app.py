@@ -1,9 +1,9 @@
 import streamlit as st
-import pandas as pd
 import numpy as np
 import pickle
 import requests
 import time
+import pandas as pd
 
 class Anime_Recommender_System:
     paths = {
